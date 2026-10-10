@@ -1,0 +1,26 @@
+{
+    "status": "ok",
+    "data": [
+        {
+            "city": "Bhopal",
+            "observation_time": "2026-10-10T06:00:00",
+            "temperature": 24.5,
+            "humidity": 62,
+            "wind_speed": 8.2
+        },
+        {
+            "city": "Delhi",
+            "observation_time": "2026-10-10T06:00:00",
+            "temperature": 26.0,
+            "humidity": 48,
+            "wind_speed": 6.1
+        },
+        {
+            "city": "Mumbai",
+            "observation_time": "2026-10-10T06:00:00",
+            "temperature": "hot",
+            "humidity": 78,
+            "wind_speed": 12.3
+        }
+    ]
+}
