@@ -1,0 +1,29 @@
+# Secrets
+.env
+*.pem
+*.key
+credentials*.json
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Test and tool caches
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+logs/
+*.log
+
+# Local data we don't want to commit
+data/
+uploads/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
