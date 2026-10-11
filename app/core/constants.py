@@ -10,14 +10,12 @@ class SourceType(StrEnum):
 class CheckStatus(StrEnum):
     PASS = "PASS"
     FAIL = "FAIL"
-    WARN = "WARN"
-    ERROR = "ERROR"
 
 
 class Severity(StrEnum):
-    INFO = "INFO"
-    WARNING = "WARNING"
-    CRITICAL = "CRITICAL"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
 
 
 class RunStatus(StrEnum):

@@ -2,15 +2,17 @@ import pandas as pd
 
 from app.core.constants import CheckStatus
 from app.quality.result import RuleResult
-from app.quality.rules.base import BaseRule
-
-MAX_SAMPLES = 5
+from app.quality.rules.base import MAX_SAMPLES, BaseRule, require_column_list
 
 
 class DuplicatesRule(BaseRule):
-    """Fails if rows repeat, by chosen key columns or across the whole row."""
+    """Fails if rows repeat, across the whole row or by chosen key columns."""
 
     rule_type = "duplicates"
+
+    def validate_config(self) -> None:
+        if self.config.get("columns") is not None:
+            require_column_list(self.config)
 
     def evaluate(self, df: pd.DataFrame) -> RuleResult:
         columns = self.config.get("columns")
@@ -18,22 +20,16 @@ class DuplicatesRule(BaseRule):
         if columns is None:
             key_columns = list(df.columns)
             label = "full row"
-        elif isinstance(columns, list) and columns:
-            absent = [col for col in columns if col not in df.columns]
-            if absent:
-                return self._error(f"Columns not found in data: {absent}")
+            candidates = df  # same rows the profiler counts
+        else:
+            problem = self._absent_columns_failure(df, columns)
+            if problem:
+                return problem
             key_columns = columns
             label = "key " + ", ".join(columns)
-        else:
-            return self._error("'columns' must be a non-empty list if given.")
+            candidates = df[df[key_columns].notna().all(axis=1)]  # blank keys are not duplicates
 
-        if not key_columns:
-            return self._error("Data has no columns to compare.")
-
-        has_key = df[key_columns].notna().all(axis=1)
-        candidates = df[has_key]
         duplicated = candidates.duplicated(subset=key_columns, keep=False)
-
         failed = int(duplicated.sum())
         details = {"columns": key_columns}
 
@@ -44,13 +40,11 @@ class DuplicatesRule(BaseRule):
                 rows_evaluated=len(candidates),
                 details=details,
             )
-
-        samples = [int(i) for i in candidates.index[duplicated][:MAX_SAMPLES]]
         return self._result(
             CheckStatus.FAIL,
             f"{failed} row(s) share a duplicate {label}.",
             rows_evaluated=len(candidates),
             failed_row_count=failed,
-            sample_row_indexes=samples,
+            sample_row_indexes=[int(i) for i in candidates.index[duplicated][:MAX_SAMPLES]],
             details=details,
         )

@@ -12,7 +12,7 @@ logger = get_logger(__name__)
 
 
 def run_rules(df: pd.DataFrame, rules: list[BaseRule]) -> list[RuleResult]:
-    """Run every rule on the data and return one result per rule."""
+    """Run every rule on the data and return exactly one result per rule."""
     results: list[RuleResult] = []
     for rule in rules:
         start = time.perf_counter()
@@ -20,7 +20,11 @@ def run_rules(df: pd.DataFrame, rules: list[BaseRule]) -> list[RuleResult]:
             result = rule.evaluate(df)
         except Exception:
             logger.exception("Rule '%s' crashed", rule.name)
-            result = rule._error("Rule crashed unexpectedly. See logs.")
+            result = rule._result(
+                CheckStatus.FAIL,
+                "Rule crashed unexpectedly. See logs.",
+                details={"error": "crash"},
+            )
         result.duration_ms = round((time.perf_counter() - start) * 1000, 2)
         results.append(result)
     return results
