@@ -1,5 +1,7 @@
 import { showUpload } from "./upload.js";
 import { showRun } from "./reports.js";
+import { showDashboard } from "./dashboard.js";
+import { showDataset } from "./datasets.js";
 
 const view = document.getElementById("view");
 
@@ -30,7 +32,8 @@ function render(...nodes) {
 const routes = [
     { pattern: /^#\/upload$/, handler: () => showUpload(render) },
     { pattern: /^#\/runs\/(\d+)$/, handler: (m) => showRun(render, Number(m[1])) },
-    { pattern: /^#\/?$/, handler: () => showHome() },
+    { pattern: /^#\/datasets\/(\d+)$/, handler: (m) => showDataset(render, Number(m[1])) },
+    { pattern: /^#\/?$/, handler: () => showDashboard(render) },
 ];
 
 function showHome() {

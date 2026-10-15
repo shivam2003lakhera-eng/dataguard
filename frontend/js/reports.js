@@ -36,7 +36,10 @@ function buildReport(run) {
             el("div", { class: "stat" }, el("div", { class: "num", text: run.checks_passed }), el("div", { class: "muted", text: "Checks passed" })),
             el("div", { class: "stat" }, el("div", { class: "num", text: run.checks_failed }), el("div", { class: "muted", text: "Checks failed" })),
         ),
-        el("p", { class: "muted", text: `Started ${formatDate(run.started_at)}` }),
+        el("p", { class: "muted" },
+            `Started ${formatDate(run.started_at)} · `,
+            el("a", { href: `#/datasets/${run.dataset_id}`, text: "View dataset" }),
+        ),
         run.error_message ? errorBox(run.error_message) : null,
         el("div", { class: "card" }, table),
     );
