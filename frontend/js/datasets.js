@@ -31,7 +31,10 @@ function buildDetails(dataset, profile) {
             el("h2", { text: "Column statistics" }),
             columnTable(profile.columns),
         ),
-        el("p", { class: "muted", text: "Rules and run history for this dataset are added in the next step." }),
+        el("div", { class: "row" },
+            el("a", { class: "btn", href: `#/datasets/${dataset.id}/rules`, text: "Manage rules" }),
+            el("a", { class: "btn", href: `#/datasets/${dataset.id}/runs`, text: "Run history" }),
+        ),
     );
 }
 
