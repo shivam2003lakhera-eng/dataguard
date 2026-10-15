@@ -18,19 +18,9 @@ class NotFoundError(DataGuardError):
     status_code = 404
 
 
-class ConflictError(DataGuardError):
-    code = "conflict"
-    status_code = 409
-
-
 class ConfigurationError(DataGuardError):
     code = "invalid_configuration"
     status_code = 422
-
-
-class SourceFileNotFoundError(DataGuardError):
-    code = "source_file_not_found"
-    status_code = 404
 
 
 class UnsupportedFormatError(DataGuardError):
@@ -46,8 +36,3 @@ class InvalidSourceDataError(DataGuardError):
 class FileTooLargeError(DataGuardError):
     code = "file_too_large"
     status_code = 413
-
-
-class AccessDeniedError(DataGuardError):
-    code = "access_denied"
-    status_code = 403
