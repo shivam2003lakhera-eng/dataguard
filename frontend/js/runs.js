@@ -14,7 +14,7 @@ export async function showRunHistory(render, datasetId) {
 function buildHistory(dataset, page) {
     const rows = page.items.map((r) =>
         el("tr", {},
-            el("td", {}, el("a", { href: `#/runs/${r.id}`, text: `#${r.id}` })),
+            el("td", {}, el("a", { class: "run-link", href: `#/runs/${r.id}`, text: `#${r.id}` })),
             el("td", {}, badge(r.status)),
             el("td", { text: `${r.checks_passed} passed, ${r.checks_failed} failed` }),
             el("td", { text: formatDate(r.started_at) }),
@@ -33,7 +33,7 @@ function buildHistory(dataset, page) {
         : null;
 
     return el("div", {},
-        el("p", {}, el("a", { href: `#/datasets/${dataset.id}`, text: "← Back to dataset" })),
+        el("a", { class: "back-link", href: `#/datasets/${dataset.id}`, text: "← Back to dataset" }),
         el("h1", { text: `Run history: ${dataset.name}` }),
         el("div", { class: "card" }, table, more),
         rerunCard(dataset.id),

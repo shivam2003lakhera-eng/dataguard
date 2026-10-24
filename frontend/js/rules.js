@@ -228,7 +228,7 @@ export async function showRules(render, datasetId) {
     addButton.addEventListener("click", () => openForm(null));
 
     render(
-        el("p", {}, el("a", { href: `#/datasets/${datasetId}`, text: "← Back to dataset" })),
+        el("a", { class: "back-link", href: `#/datasets/${datasetId}`, text: "← Back to dataset" }),
         el("h1", { text: "Quality rules" }),
         flash,
         el("div", { class: "card" }, listSlot),

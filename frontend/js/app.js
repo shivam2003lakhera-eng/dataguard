@@ -73,7 +73,7 @@ function route() {
         const match = hash.match(pattern);
         if (match) return handler(match);
     }
-    render(el("h1", { text: "Page not found" }), el("a", { href: "#/", text: "Back to start" }));
+    render(el("h1", { text: "Page not found" }), el("a", { class: "btn", href: "#/", text: "Back to start" }));
 }
 
 window.addEventListener("hashchange", route);

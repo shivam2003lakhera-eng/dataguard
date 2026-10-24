@@ -57,8 +57,8 @@ function recentRunsCard(runs, names) {
     }
     const rows = runs.map((r) =>
         el("tr", {},
-            el("td", {}, el("a", { href: `#/runs/${r.id}`, text: `#${r.id}` })),
-            el("td", {}, el("a", { href: `#/datasets/${r.dataset_id}`, text: names.get(r.dataset_id) || `Dataset ${r.dataset_id}` })),
+            el("td", {}, el("a", { class: "run-link", href: `#/runs/${r.id}`, text: `#${r.id}` })),
+            el("td", {}, el("a", { class: "name-link", href: `#/datasets/${r.dataset_id}`, text: names.get(r.dataset_id) || `Dataset ${r.dataset_id}` })),
             el("td", {}, badge(r.status)),
             el("td", { text: `${r.checks_passed} passed, ${r.checks_failed} failed` }),
             el("td", { text: formatDate(r.started_at) }),
