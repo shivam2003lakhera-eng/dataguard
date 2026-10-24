@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { badge, el, errorBox } from "./app.js";
+import { badge, el, emptyState, errorBox } from "./app.js";
 
 const splitList = (text) => text.split(",").map((s) => s.trim()).filter(Boolean);
 
@@ -201,8 +201,7 @@ export async function showRules(render, datasetId) {
     }
 
     function buildTable(rules) {
-        if (!rules.length) return el("p", { class: "muted", text: "No rules yet. Add one below." });
-        const rows = rules.map((r) => {
+        if (!rules.length) return emptyState("No rules yet", "Add a rule below to start checking this dataset."); const rows = rules.map((r) => {
             const toggle = el("button", { type: "button", class: "secondary", text: r.enabled ? "Disable" : "Enable" });
             toggle.addEventListener("click", () => act(api.updateRule(r.id, { enabled: !r.enabled })));
             const edit = el("button", { type: "button", class: "secondary", text: "Edit" });

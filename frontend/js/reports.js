@@ -1,8 +1,8 @@
 import { api } from "./api.js";
-import { badge, el, errorBox, formatDate } from "./app.js";
+import { badge, el, errorBox, formatDate, loading } from "./app.js";
 
 export async function showRun(render, runId) {
-    render(el("p", { class: "muted", text: "Loading report..." }));
+    render(loading("Loading report..."));
     try {
         const run = await api.getRun(runId);
         render(buildReport(run));
@@ -13,12 +13,10 @@ export async function showRun(render, runId) {
 
 function buildReport(run) {
     const rows = run.results.map((r) =>
-        el("tr", {},
-            el("td", { text: r.rule_name }),
-            el("td", {}, badge(r.status)),
-            el("td", {}, badge(r.severity)),
-            el("td", { text: `${r.rows_failed} / ${r.rows_evaluated}` }),
-            el("td", { text: r.message }),
+        el("div", { class: "stats" },
+            el("div", { class: "stat" }, el("div", { class: "muted", text: "Status" }), badge(run.status)),
+            el("div", { class: "stat pass" }, el("div", { class: "num", text: run.checks_passed }), el("div", { class: "muted", text: "Checks passed" })),
+            el("div", { class: "stat fail" }, el("div", { class: "num", text: run.checks_failed }), el("div", { class: "muted", text: "Checks failed" })),
         ),
     );
 

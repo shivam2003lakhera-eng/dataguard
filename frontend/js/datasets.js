@@ -1,8 +1,8 @@
 import { api } from "./api.js";
-import { badge, el, errorBox, formatDate } from "./app.js";
+import { badge, el, errorBox, formatDate, loading } from "./app.js";
 
 export async function showDataset(render, datasetId) {
-    render(el("p", { class: "muted", text: "Loading dataset..." }));
+    render(loading("Loading dataset..."));
     try {
         const [dataset, profile] = await Promise.all([api.getDataset(datasetId), api.getProfile(datasetId)]);
         render(buildDetails(dataset, profile.profile_data));

@@ -1,8 +1,8 @@
 import { api } from "./api.js";
-import { badge, el, errorBox, formatDate } from "./app.js";
+import { badge, el, emptyState, errorBox, formatDate, loading } from "./app.js";
 
 export async function showRunHistory(render, datasetId) {
-    render(el("p", { class: "muted", text: "Loading run history..." }));
+    render(loading("Loading run history..."));
     try {
         const [dataset, runs] = await Promise.all([api.getDataset(datasetId), api.listRuns(datasetId, 100, 0)]);
         render(buildHistory(dataset, runs));
@@ -26,7 +26,7 @@ function buildHistory(dataset, page) {
         ? el("div", { class: "table-wrap" }, el("table", {},
             el("thead", {}, el("tr", {}, ...["Run", "Status", "Checks", "Started", "Completed"].map((h) => el("th", { text: h })))),
             el("tbody", {}, rows)))
-        : el("p", { class: "muted", text: "No runs yet." });
+        : emptyState("No runs yet", "Choose a CSV in the box below to run this dataset's checks.");
 
     const more = page.total > page.items.length
         ? el("p", { class: "muted", text: `Showing the newest ${page.items.length} of ${page.total} runs.` })

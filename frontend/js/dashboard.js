@@ -1,12 +1,12 @@
 import { api } from "./api.js";
-import { badge, el, errorBox, formatDate } from "./app.js";
+import { badge, el, emptyState, errorBox, formatDate, loading } from "./app.js";
 
 const DATASET_LIMIT = 10;
 const RUNS_PER_DATASET = 5;
 const REPORTS_TO_SUMMARIZE = 10;
 
 export async function showDashboard(render) {
-    render(el("h1", { text: "Dashboard" }), el("p", { class: "muted", text: "Loading..." }));
+    render(el("h1", { text: "Dashboard" }), loading());
     try {
         const datasets = await api.listDatasets(DATASET_LIMIT, 0);
         const perDataset = await Promise.all(
@@ -47,7 +47,12 @@ function recentRunsCard(runs, names) {
     if (!runs.length) {
         return el("div", { class: "card" },
             el("h2", { text: "Recent runs" }),
-            el("p", { class: "muted", text: "No runs yet. " }, el("a", { href: "#/upload", text: "Upload a dataset" })),
+            emptyState(
+                "No runs yet",
+                "Upload a CSV file to profile it and see its quality report here.",
+                "#/upload",
+                "Upload a dataset",
+            ),
         );
     }
     const rows = runs.map((r) =>

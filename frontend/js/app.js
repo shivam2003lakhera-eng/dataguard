@@ -26,6 +26,18 @@ export function el(tag, props = {}, ...children) {
 export const badge = (value) => el("span", { class: `badge ${value}`, text: String(value).replaceAll("_", " ") });
 export const errorBox = (message) => el("div", { class: "alert error", role: "alert", text: message });
 export const formatDate = (iso) => (iso ? new Date(iso).toLocaleString() : "");
+export function loading(text = "Loading...") {
+    return el("div", { class: "loading", role: "status" },
+        el("span", { class: "spinner", "aria-hidden": "true" }), text);
+}
+export function emptyState(title, text, href, actionText) {
+    return el("div", { class: "empty-state" },
+        el("div", { class: "empty-icon", "aria-hidden": "true", text: "↑" }),
+        el("h2", { text: title }),
+        el("p", { class: "muted", text }),
+        href ? el("a", { class: "btn", href, text: actionText }) : null,
+    );
+}
 
 function render(...nodes) {
     view.replaceChildren(...nodes);
@@ -52,6 +64,11 @@ function showHome() {
 
 function route() {
     const hash = location.hash || "#/";
+    const section = hash.startsWith("#/upload") ? "#/upload" : "#/";
+    document.querySelectorAll(".topbar nav a").forEach((a) =>
+        a.classList.toggle("active", a.getAttribute("href") === section));
+    window.scrollTo(0, 0);
+
     for (const { pattern, handler } of routes) {
         const match = hash.match(pattern);
         if (match) return handler(match);
