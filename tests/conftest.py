@@ -48,5 +48,5 @@ def db_session(test_engine):
         with test_engine.begin() as conn:
             conn.execute(text(
                 "TRUNCATE quality_results, quality_runs, quality_rules, "
-                "dataset_profiles, datasets RESTART IDENTITY CASCADE"
+                                "dataset_profiles, datasets, user_sessions, users RESTART IDENTITY CASCADE"
             ))
