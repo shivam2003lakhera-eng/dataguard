@@ -1,14 +1,15 @@
 import json
 from typing import Annotated, Any
 
-from fastapi import Depends, UploadFile
+from fastapi import Depends, UploadFile, Request
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.exceptions import ConfigurationError, FileTooLargeError, NotFoundError
+from app.core.exceptions import ConfigurationError, FileTooLargeError, NotFoundError, AuthenticationError
 from app.db.session import get_db
-from app.models import Dataset, QualityRule
+from app.models import Dataset, QualityRule, User
 from app.schemas.rule import RuleCreate
+from app.services.auth import SESSION_COOKIE, user_for_token
 
 DbSession = Annotated[Session, Depends(get_db)]
 CHUNK_SIZE = 1024 * 1024
@@ -58,3 +59,12 @@ def get_rule_or_404(db: Session, rule_id: int) -> QualityRule:
     if rule is None:
         raise NotFoundError("Rule not found.", {"rule_id": rule_id})
     return rule
+
+def get_current_user(request: Request, db: DbSession) -> User:
+    user = user_for_token(db, request.cookies.get(SESSION_COOKIE))
+    if user is None:
+        raise AuthenticationError("You are not logged in.")
+    return user
+
+
+CurrentUser = Annotated[User, Depends(get_current_user)]

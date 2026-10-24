@@ -36,3 +36,28 @@ class InvalidSourceDataError(DataGuardError):
 class FileTooLargeError(DataGuardError):
     code = "file_too_large"
     status_code = 413
+
+
+
+class AuthenticationError(DataGuardError):
+    code = "not_authenticated"
+    status_code = 401
+
+
+class InvalidCredentialsError(AuthenticationError):
+    code = "invalid_credentials"
+
+
+class ConflictError(DataGuardError):
+    code = "conflict"
+    status_code = 409
+
+
+class RegistrationClosedError(DataGuardError):
+    code = "registration_closed"
+    status_code = 403
+
+
+class TooManyAttemptsError(DataGuardError):
+    code = "too_many_attempts"
+    status_code = 429
