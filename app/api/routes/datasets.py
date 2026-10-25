@@ -3,7 +3,13 @@ from typing import Annotated
 from fastapi import APIRouter, File, Form, Query, UploadFile
 from sqlalchemy import func, select
 
-from app.api.deps import DbSession, get_dataset_or_404, parse_rule_specs, read_upload
+from app.api.deps import (
+    CurrentUser,
+    DbSession,
+    get_dataset_or_404,
+    parse_rule_specs,
+    read_upload,
+)
 from app.core.exceptions import ConfigurationError, NotFoundError
 from app.models import Dataset, DatasetProfile
 from app.schemas.common import Page
@@ -19,6 +25,7 @@ def upload_dataset(
     file: Annotated[UploadFile, File()],
     name: Annotated[str, Form(min_length=1, max_length=200)],
     db: DbSession,
+    user: CurrentUser,
     description: Annotated[str | None, Form(max_length=2000)] = None,
     rules: Annotated[str | None, Form()] = None,
 ):
@@ -32,7 +39,7 @@ def upload_dataset(
     content, filename = read_upload(file)
     rule_specs = parse_rule_specs(rules)
     run = create_dataset_from_upload(
-        db, content, filename, clean_name, description=description, rules=rule_specs
+        db, user.id, content, filename, clean_name, description=description, rules=rule_specs
     )
     return run_to_detail(run)
 
@@ -40,12 +47,14 @@ def upload_dataset(
 @router.get("", response_model=Page[DatasetOut])
 def list_datasets(
     db: DbSession,
+    user: CurrentUser,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ):
-    total = db.scalar(select(func.count()).select_from(Dataset)) or 0
+    mine = Dataset.user_id == user.id
+    total = db.scalar(select(func.count()).select_from(Dataset).where(mine)) or 0
     rows = db.scalars(
-        select(Dataset).order_by(Dataset.id.desc()).limit(limit).offset(offset)
+        select(Dataset).where(mine).order_by(Dataset.id.desc()).limit(limit).offset(offset)
     ).all()
     return Page[DatasetOut](
         items=[DatasetOut.model_validate(r) for r in rows],
@@ -54,13 +63,13 @@ def list_datasets(
 
 
 @router.get("/{dataset_id}", response_model=DatasetOut)
-def get_dataset(dataset_id: int, db: DbSession):
-    return DatasetOut.model_validate(get_dataset_or_404(db, dataset_id))
+def get_dataset(dataset_id: int, db: DbSession, user: CurrentUser):
+    return DatasetOut.model_validate(get_dataset_or_404(db, dataset_id, user))
 
 
 @router.get("/{dataset_id}/profile", response_model=ProfileOut)
-def get_profile(dataset_id: int, db: DbSession):
-    get_dataset_or_404(db, dataset_id)
+def get_profile(dataset_id: int, db: DbSession, user: CurrentUser):
+    get_dataset_or_404(db, dataset_id, user)
     profile = db.scalars(
         select(DatasetProfile)
         .where(DatasetProfile.dataset_id == dataset_id)

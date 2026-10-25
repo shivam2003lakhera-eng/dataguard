@@ -18,14 +18,18 @@ ID_REQUIRED = {
     "configuration": {"columns": ["policy_id"]}, "severity": "HIGH",
 }
 
-
 @pytest.fixture
 def client(db_session):
     def override():
         yield db_session
 
     app.dependency_overrides[get_db] = override
-    yield TestClient(app, raise_server_exceptions=False)
+    browser = TestClient(app, raise_server_exceptions=False)
+    browser.post(
+        f"{API}/auth/register",
+        json={"email": "owner@example.com", "password": "correct horse 9"},
+    )  # registering also logs in: the cookie stays in this client
+    yield browser
     app.dependency_overrides.clear()
 
 

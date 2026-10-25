@@ -11,14 +11,30 @@ from app.models import (
     QualityResult,
     QualityRule,
     QualityRun,
+    User,
 )
 from app.profiling.profiler import profile_dataframe
 
 SAMPLE = Path(__file__).resolve().parent.parent / "sample_data" / "insurance" / "policies_bad.csv"
 
 
+OWNER = {}
+
+
+@pytest.fixture(autouse=True)
+def _owner(db_session):
+    """Every dataset needs an owner: create one per test and remember its id."""
+    user = User(email="owner@example.com", password_hash="not-a-real-hash")
+    db_session.add(user)
+    db_session.commit()
+    OWNER["id"] = user.id
+
+
 def make_dataset(**overrides) -> Dataset:
-    values = dict(name="Policies", original_filename="policies.csv", row_count=8, column_count=5)
+    values = dict(
+        user_id=OWNER["id"], name="Policies", original_filename="policies.csv",
+        row_count=8, column_count=5,
+    )
     values.update(overrides)
     return Dataset(**values)
 

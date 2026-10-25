@@ -20,3 +20,6 @@ class User(Base):
     sessions: Mapped[list["UserSession"]] = relationship(
         back_populates="user", cascade="all, delete-orphan", passive_deletes=True
     )
+    datasets: Mapped[list["Dataset"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan", passive_deletes=True
+    )
