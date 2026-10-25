@@ -18,9 +18,9 @@ A data quality monitoring app. Create an account, upload a CSV, get an automatic
 
 | | |
 |---|---|
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Quality report](docs/screenshots/quality-report.png) |
+| ![Dashboard](docs/screenshots/dashboard-light.png) | ![Quality report](docs/screenshots/quality-report.png) |
 | ![Dataset details](docs/screenshots/dataset-details.png) | ![Rules](docs/screenshots/rules.png) |
-| ![My runs](docs/screenshots/my-runs.png) | ![Dark mode](docs/screenshots/quality-report-dark.png) |
+| ![My runs](docs/screenshots/my-runs.png) | ![Dark mode](docs/screenshots/dashboard-dark.png) |
 
 More: [login](docs/screenshots/login.png), [upload](docs/screenshots/upload.png), [run history](docs/screenshots/run-history.png).
 
