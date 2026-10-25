@@ -31,6 +31,9 @@ class RunOut(BaseModel):
     checks_failed: int
     error_message: str | None
 
+class RunListItem(RunOut):
+    dataset_name: str
+
 
 class RunDetail(RunOut):
     results: list[ResultOut]

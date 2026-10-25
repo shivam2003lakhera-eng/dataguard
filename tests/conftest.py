@@ -37,6 +37,16 @@ def test_engine():
     yield engine
     engine.dispose()
 
+@pytest.fixture
+def user(db_session):
+    """A saved user, for tests that create datasets directly."""
+    from app.models import User
+
+    owner = User(email="owner@example.com", password_hash="not-a-real-hash")
+    db_session.add(owner)
+    db_session.commit()
+    return owner
+
 
 @pytest.fixture
 def db_session(test_engine):
@@ -48,5 +58,7 @@ def db_session(test_engine):
         with test_engine.begin() as conn:
             conn.execute(text(
                 "TRUNCATE quality_results, quality_runs, quality_rules, "
-                "dataset_profiles, datasets RESTART IDENTITY CASCADE"
+                                "dataset_profiles, datasets, user_sessions, users RESTART IDENTITY CASCADE"
             ))
+
+            

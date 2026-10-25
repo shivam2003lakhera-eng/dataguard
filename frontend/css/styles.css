@@ -567,3 +567,102 @@ a.back-link:hover {
         text-align: center;
     }
 }
+
+/* ---------- Auth, user box, pager ---------- */
+input[type=email],
+input[type=password] {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font: inherit;
+    background: var(--card);
+    color: var(--text);
+}
+
+input[type=email]:focus,
+input[type=password]:focus {
+    border-color: var(--primary);
+    outline: 2px solid var(--primary-soft);
+}
+
+.auth-card {
+    max-width: 420px;
+    margin: 32px auto;
+}
+
+.auth-card button[type=submit] {
+    width: 100%;
+    margin-top: 18px;
+}
+
+.auth-switch {
+    text-align: center;
+    margin: 16px 0 0;
+}
+
+button.small {
+    padding: 5px 12px;
+    font-size: 13px;
+}
+
+.userbox {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.user-email {
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.spread {
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.filter-row {
+    margin-bottom: 12px;
+}
+
+.filter-row select {
+    width: auto;
+    min-width: 220px;
+}
+
+.pager {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
+@media (max-width: 640px) {
+    .userbox {
+        margin-left: 0;
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .user-email {
+        max-width: 60vw;
+    }
+
+    .auth-card {
+        margin: 16px auto;
+    }
+
+    input[type=email],
+    input[type=password] {
+        font-size: 16px;
+    }
+}

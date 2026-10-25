@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     test_database_url: str | None = None
     max_file_size_mb: int = Field(default=50, gt=0)
     log_level: str = "INFO"
+    session_days: int = Field(default=7, gt=0)
+    cookie_secure: bool = False
+    allow_registration: bool = True
 
 
 @lru_cache

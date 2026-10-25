@@ -111,6 +111,7 @@ def _start_run(session: Session, dataset_id: int) -> QualityRun:
 
 def create_dataset_from_upload(
     session: Session,
+    user_id: int,
     content: bytes,
     filename: str,
     name: str,
@@ -125,6 +126,7 @@ def create_dataset_from_upload(
 
     try:
         dataset = Dataset(
+            user_id=user_id,
             name=name, description=description, original_filename=_clean_name(filename),
             row_count=len(df), column_count=len(df.columns),
         )

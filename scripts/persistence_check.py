@@ -1,14 +1,13 @@
-"""Check that data survives between separate Python processes.
+"""Inspect the development database.
 
 Usage (project root, venv active):
-    python -m scripts.persistence_check add
     python -m scripts.persistence_check show
     python -m scripts.persistence_check cleanup
     python -m scripts.persistence_check schema
 """
 import sys
 
-from sqlalchemy import delete, inspect, select
+from sqlalchemy import delete, inspect, text
 
 from app.db.session import get_engine, session_scope
 from app.models import Dataset
@@ -19,13 +18,11 @@ NAME = "persist-check"
 def main(action: str) -> None:
     print("Database:", get_engine().url.render_as_string(hide_password=True))
 
-    if action == "add":
-        with session_scope() as s:
-            s.add(Dataset(name=NAME, original_filename="x.csv", row_count=1, column_count=1))
-        print("Added one dataset.")
-    elif action == "show":
-        with session_scope() as s:
-            print("Datasets:", [d.name for d in s.scalars(select(Dataset))])
+    if action == "show":
+        # Plain SQL on purpose: works even if the table is missing newer columns.
+        with get_engine().connect() as conn:
+            names = conn.execute(text("SELECT name FROM datasets ORDER BY id")).scalars().all()
+        print("Datasets:", names)
     elif action == "cleanup":
         with session_scope() as s:
             result = s.execute(delete(Dataset).where(Dataset.name == NAME))
@@ -40,7 +37,7 @@ def main(action: str) -> None:
                   "ON DELETE", fk["options"].get("ondelete"))
         print("Indexes:", sorted(i["name"] for i in insp.get_indexes(table)))
     else:
-        raise SystemExit("Use: add | show | cleanup | schema")
+        raise SystemExit("Use: show | cleanup | schema")
 
 
 if __name__ == "__main__":
