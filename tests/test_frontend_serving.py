@@ -33,3 +33,8 @@ def test_every_imported_js_module_exists_and_is_served(client):
         for target in re.findall(r'from "\./([\w-]+\.js)"', js_file.read_text(encoding="utf-8")):
             assert (FRONTEND / "js" / target).exists(), f"{js_file.name} imports missing {target}"
             assert client.get(f"/js/{target}").status_code == 200
+
+def test_index_has_the_containers_the_script_needs(client):
+    html = client.get("/").text
+    for element_id in ("view", "nav", "userbox"):
+        assert f'id="{element_id}"' in html
