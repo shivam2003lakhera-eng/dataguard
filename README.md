@@ -14,6 +14,16 @@ A data quality monitoring app. Create an account, upload a CSV, get an automatic
 - Everything persisted in PostgreSQL; raw CSV rows are never stored
 - REST API under `/api/v1` and a vanilla JavaScript frontend with light and dark themes
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Quality report](docs/screenshots/quality-report.png) |
+| ![Dataset details](docs/screenshots/dataset-details.png) | ![Rules](docs/screenshots/rules.png) |
+| ![My runs](docs/screenshots/my-runs.png) | ![Dark mode](docs/screenshots/quality-report-dark.png) |
+
+More: [login](docs/screenshots/login.png), [upload](docs/screenshots/upload.png), [run history](docs/screenshots/run-history.png).
+
 ## Tech stack
 
 Python 3.13, pandas, FastAPI, Pydantic v2, SQLAlchemy 2.x, psycopg, PostgreSQL 18, HTML/CSS/JavaScript (no framework), pytest.
