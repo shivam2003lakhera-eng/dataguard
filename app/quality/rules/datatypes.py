@@ -2,6 +2,7 @@ import pandas as pd
 
 from app.core.constants import CheckStatus
 from app.core.exceptions import ConfigurationError
+from app.core.missing import is_missing
 from app.profiling.statistics import parse_iso_dates, to_finite_numbers
 from app.quality.result import RuleResult
 from app.quality.rules.base import MAX_SAMPLES, BaseRule, require_column_name
@@ -31,8 +32,7 @@ class DataTypeRule(BaseRule):
         if problem:
             return problem
 
-        values = df[column].dropna()
-        values = values[values.astype(str).str.strip() != ""]  # blanks are "missing", not wrong
+        values = df[column][~is_missing(df[column])]  # blank cells are "missing", not wrong
 
         if data_type == "integer":
             ok = values.astype(str).str.strip().str.match(INTEGER_PATTERN)

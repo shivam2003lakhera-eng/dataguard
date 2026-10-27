@@ -2,6 +2,7 @@ import pandas as pd
 
 from app.core.constants import CheckStatus
 from app.core.exceptions import ConfigurationError
+from app.core.missing import is_missing
 from app.quality.result import RuleResult
 from app.quality.rules.base import MAX_SAMPLES, BaseRule, require_column_name
 
@@ -32,7 +33,7 @@ class AllowedValuesRule(BaseRule):
         if not case_sensitive:
             allowed_set = {v.upper() for v in allowed_set}
 
-        present = df[column].notna()
+        present = ~is_missing(df[column])        
         values = df.loc[present, column].astype(str).str.strip()
         if not case_sensitive:
             values = values.str.upper()

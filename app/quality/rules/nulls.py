@@ -1,6 +1,7 @@
 import pandas as pd
 
 from app.core.constants import CheckStatus
+from app.core.missing import is_missing
 from app.quality.result import RuleResult
 from app.quality.rules.base import MAX_SAMPLES, BaseRule, require_column_list
 
@@ -21,8 +22,7 @@ class RequiredValuesRule(BaseRule):
 
         missing_rows = pd.Series(False, index=df.index)
         for col in columns:
-            blank = df[col].isna() | df[col].astype(str).str.strip().eq("")
-            missing_rows = missing_rows | blank
+            missing_rows = missing_rows | is_missing(df[col])
 
         failed = int(missing_rows.sum())
         details = {"columns": columns}

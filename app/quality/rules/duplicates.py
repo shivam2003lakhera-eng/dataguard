@@ -1,12 +1,17 @@
 import pandas as pd
 
 from app.core.constants import CheckStatus
+from app.core.missing import is_missing
 from app.quality.result import RuleResult
 from app.quality.rules.base import MAX_SAMPLES, BaseRule, require_column_list
 
 
 class DuplicatesRule(BaseRule):
-    """Fails if rows repeat, across the whole row or by chosen key columns."""
+    """Fails if rows repeat, across the whole row or by chosen key columns.
+
+    failed_row_count is the number of rows that have an identical twin.
+    details also gives duplicate_groups and extra_copies (beyond the first).
+    """
 
     rule_type = "duplicates"
 
@@ -27,11 +32,18 @@ class DuplicatesRule(BaseRule):
                 return problem
             key_columns = columns
             label = "key " + ", ".join(columns)
-            candidates = df[df[key_columns].notna().all(axis=1)]  # blank keys are not duplicates
+            has_key = ~df[key_columns].apply(is_missing).any(axis=1)
+            candidates = df[has_key]  # a missing key is not a duplicate
 
-        duplicated = candidates.duplicated(subset=key_columns, keep=False)
-        failed = int(duplicated.sum())
-        details = {"columns": key_columns}
+        involved = candidates.duplicated(subset=key_columns, keep=False)
+        extra = candidates.duplicated(subset=key_columns, keep="first")
+        failed = int(involved.sum())
+        extra_copies = int(extra.sum())
+        details = {
+            "columns": key_columns,
+            "duplicate_groups": failed - extra_copies,
+            "extra_copies": extra_copies,
+        }
 
         if failed == 0:
             return self._result(
@@ -42,9 +54,10 @@ class DuplicatesRule(BaseRule):
             )
         return self._result(
             CheckStatus.FAIL,
-            f"{failed} row(s) share a duplicate {label}.",
+            f"{failed} row(s) share a duplicate {label} "
+            f"({failed - extra_copies} group(s), extra copies: {extra_copies}).",
             rows_evaluated=len(candidates),
             failed_row_count=failed,
-            sample_row_indexes=[int(i) for i in candidates.index[duplicated][:MAX_SAMPLES]],
+            sample_row_indexes=[int(i) for i in candidates.index[involved][:MAX_SAMPLES]],
             details=details,
         )
