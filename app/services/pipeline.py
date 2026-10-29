@@ -4,6 +4,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.constants import RunStatus
 from app.core.exceptions import ConfigurationError, NotFoundError
 from app.core.logging import get_logger
@@ -22,6 +23,24 @@ from app.quality.rules.registry import build_rule
 logger = get_logger(__name__)
 
 RUN_FAILED_MESSAGE = "The quality run failed unexpectedly. See server logs."
+
+# Keys in a rule's evidence that hold raw cell values from the uploaded file.
+SAMPLE_VALUE_KEYS = ("bad_values",)
+
+
+def _persistable_details(details: dict[str, Any], sample_row_indexes: list[int]) -> dict[str, Any]:
+    """What is stored with a result.
+
+    Row positions are always kept. Raw cell values are dropped unless
+    STORE_SAMPLE_VALUES=true, so uploaded data is not copied into the database
+    by default.
+    """
+    kept = dict(details)
+    if not get_settings().store_sample_values:
+        for key in SAMPLE_VALUE_KEYS:
+            kept.pop(key, None)
+    kept["sample_row_indexes"] = sample_row_indexes
+    return kept
 
 
 def _validate_rule_specs(rules: list[dict[str, Any]]) -> None:
@@ -68,7 +87,7 @@ def _execute_run(session: Session, run: QualityRun, df) -> QualityRun:
                 status=result.status.value, severity=result.severity.value,
                 rows_evaluated=result.rows_evaluated, rows_failed=result.failed_row_count,
                 message=result.message,
-                details={**result.details, "sample_row_indexes": result.sample_row_indexes},
+                details=_persistable_details(result.details, result.sample_row_indexes),
             ))
         for stored, message in broken:
             rows.append(QualityResult(

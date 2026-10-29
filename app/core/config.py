@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     session_days: int = Field(default=7, gt=0)
     cookie_secure: bool = False
     allow_registration: bool = True
+    store_sample_values: bool = False
 
 
 @lru_cache

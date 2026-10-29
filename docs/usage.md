@@ -48,9 +48,13 @@ All endpoints are under `/api/v1` and, except `health` and `auth`, need a login 
 ## Notes on behavior
 
 - A numeric range ignores text such as `abc`; use a `data_type` rule to catch it.
-- Dates are recognised only in strict ISO form (`2025-01-31` or `2025-01-31T10:00:00`).
+- Only empty or whitespace-only cells are missing. "NA", "None" and "null" are treated as data.
+- Dates are recognised only in strict ISO form (no time zone designators).
 - Uploads over `MAX_FILE_SIZE_MB` (default 50) are rejected.
+- Files must be comma-separated UTF-8, with the same number of fields in every row.
 - Another user's data always looks like it does not exist (404).
+
+The full list is in [data_policies.md](data_policies.md).
 
 ## Demo workflow
 

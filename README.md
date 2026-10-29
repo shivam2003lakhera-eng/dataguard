@@ -87,6 +87,7 @@ python -m scripts.migrate_v2_ownership
 | `COOKIE_SECURE` | false | Set `true` when served over HTTPS |
 | `ALLOW_REGISTRATION` | true | Set `false` to close sign-ups |
 | `LOG_LEVEL` | INFO | Logging level |
+| `STORE_SAMPLE_VALUES` | false | Set `true` to store up to 5 offending cell values per rule |
 
 ## Tests
 
@@ -100,4 +101,4 @@ Tests run against `dataguard_test` only. They refuse to start unless the databas
 
 Upload `sample_data/insurance/policies_bad.csv` or `sample_data/weather/weather_bad.csv`. Both contain planted problems (blank ids, duplicates, out-of-range numbers, a bad date). These are examples; DataGuard works on any CSV.
 
-More: [usage](docs/usage.md), [architecture](docs/architecture.md), [database design](docs/database_design.md), [security](docs/security.md).
+More: [usage](docs/usage.md), [architecture](docs/architecture.md), [database design](docs/database_design.md), [security](docs/security.md),[data policies](docs/data_policies.md).
