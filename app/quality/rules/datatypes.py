@@ -53,11 +53,14 @@ class DataTypeRule(BaseRule):
                 details=details,
             )
         details["bad_values"] = [str(v) for v in values[bad].unique()[:MAX_SAMPLES]]
+        failing = values.index[bad]
         return self._result(
             CheckStatus.FAIL,
             f"{failed} value(s) in '{column}' are not valid {data_type} values.",
             rows_evaluated=len(values),
             failed_row_count=failed,
-            sample_row_indexes=[int(i) for i in values.index[bad][:MAX_SAMPLES]],
+            sample_row_indexes=[int(i) for i in failing[:MAX_SAMPLES]],
             details=details,
+            rejected_index=failing.tolist(),
+            reason=f"value is not a valid {data_type}",
         )

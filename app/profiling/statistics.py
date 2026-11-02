@@ -22,6 +22,20 @@ def parse_iso_dates(series: pd.Series) -> pd.Series:
     return pd.to_datetime(text.where(shaped), errors="coerce", format="mixed")
 
 
+DATE_SAMPLE_SIZE = 1000
+
+
+def _could_be_dates(values: pd.Series) -> bool:
+    """A cheap, exact pre-check before the expensive date parse.
+
+    A column is a date column only if EVERY value has the ISO shape, so a single
+    counter-example in a small sample already proves it is not. If the sample
+    passes, the full check still runs, so the result is never different.
+    """
+    sample = values.iloc[:DATE_SAMPLE_SIZE].astype("string").str.strip()
+    return bool(sample.str.match(ISO_DATE_PATTERN, na=False).all())
+
+
 def _analyze(values: pd.Series) -> tuple[str, pd.Series | None]:
     """Classify non-missing values. Returns (type, parsed numbers or dates)."""
     if values.empty:
@@ -32,9 +46,10 @@ def _analyze(values: pd.Series) -> tuple[str, pd.Series | None]:
     if numeric_count == len(values):
         return "numeric", numbers
 
-    dates = parse_iso_dates(values)
-    if int(dates.notna().sum()) == len(values):
-        return "date", dates
+    if _could_be_dates(values):
+        dates = parse_iso_dates(values)
+        if int(dates.notna().sum()) == len(values):
+            return "date", dates
 
     if numeric_count == 0:
         return "text", None

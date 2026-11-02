@@ -60,4 +60,7 @@ class DuplicatesRule(BaseRule):
             failed_row_count=failed,
             sample_row_indexes=[int(i) for i in candidates.index[involved][:MAX_SAMPLES]],
             details=details,
+            # Only the extra copies are rejected: the first row of each group is kept.
+            rejected_index=candidates.index[extra].tolist(),
+            reason=f"duplicate {label} (extra copy)",
         )

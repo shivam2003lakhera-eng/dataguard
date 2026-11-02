@@ -11,6 +11,7 @@ class AllowedValuesRule(BaseRule):
     """Fails if a column contains values outside the configured list."""
 
     rule_type = "allowed_values"
+    row_reason = "value not in the allowed list"
 
     def validate_config(self) -> None:
         require_column_name(self.config)
@@ -33,7 +34,7 @@ class AllowedValuesRule(BaseRule):
         if not case_sensitive:
             allowed_set = {v.upper() for v in allowed_set}
 
-        present = ~is_missing(df[column])        
+        present = ~is_missing(df[column])
         values = df.loc[present, column].astype(str).str.strip()
         if not case_sensitive:
             values = values.str.upper()
@@ -50,11 +51,13 @@ class AllowedValuesRule(BaseRule):
                 details=details,
             )
         details["bad_values"] = sorted(set(values[bad]))[:MAX_SAMPLES]
+        failing = values.index[bad]
         return self._result(
             CheckStatus.FAIL,
             f"{failed} value(s) in '{column}' are not in the allowed list.",
             rows_evaluated=int(present.sum()),
             failed_row_count=failed,
-            sample_row_indexes=[int(i) for i in values.index[bad][:MAX_SAMPLES]],
+            sample_row_indexes=[int(i) for i in failing[:MAX_SAMPLES]],
             details=details,
+            rejected_index=failing.tolist(),
         )

@@ -10,6 +10,7 @@ class RequiredValuesRule(BaseRule):
     """Fails if any listed column has missing or blank values."""
 
     rule_type = "required_values"
+    row_reason = "missing required value"
 
     def validate_config(self) -> None:
         require_column_list(self.config)
@@ -33,11 +34,13 @@ class RequiredValuesRule(BaseRule):
                 rows_evaluated=len(df),
                 details=details,
             )
+        failing = df.index[missing_rows]
         return self._result(
             CheckStatus.FAIL,
             f"{failed} row(s) have missing values in required columns.",
             rows_evaluated=len(df),
             failed_row_count=failed,
-            sample_row_indexes=[int(i) for i in df.index[missing_rows][:MAX_SAMPLES]],
+            sample_row_indexes=[int(i) for i in failing[:MAX_SAMPLES]],
             details=details,
+            rejected_index=failing.tolist(),
         )

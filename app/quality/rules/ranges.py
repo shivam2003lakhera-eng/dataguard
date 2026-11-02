@@ -19,6 +19,7 @@ class NumericRangeRule(BaseRule):
     """
 
     rule_type = "numeric_range"
+    row_reason = "value outside the allowed range"
 
     def validate_config(self) -> None:
         require_column_name(self.config)
@@ -61,11 +62,13 @@ class NumericRangeRule(BaseRule):
                 rows_evaluated=checked,
                 details=details,
             )
+        failing = df.index[outside]
         return self._result(
             CheckStatus.FAIL,
             f"{failed} value(s) in '{column}' are outside the allowed range.",
             rows_evaluated=checked,
             failed_row_count=failed,
-            sample_row_indexes=[int(i) for i in df.index[outside][:MAX_SAMPLES]],
+            sample_row_indexes=[int(i) for i in failing[:MAX_SAMPLES]],
             details=details,
+            rejected_index=failing.tolist(),
         )
