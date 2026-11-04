@@ -1,3 +1,5 @@
+import hashlib
+import time
 from datetime import UTC, datetime
 from typing import Any
 
@@ -16,6 +18,7 @@ from app.models import (
     QualityRule,
     QualityRun,
 )
+from app.processing.runner import account_rows
 from app.profiling.profiler import profile_dataframe
 from app.quality.engine import run_rules
 from app.quality.rules.registry import build_rule
@@ -74,8 +77,14 @@ def _load_rule_objects(session: Session, dataset_id: int):
     return pairs, broken
 
 
+def _file_hash(content: bytes) -> str:
+    """Identifies an uploaded file, so a re-upload of the same file can be recognised."""
+    return hashlib.sha256(content).hexdigest()
+
+
 def _execute_run(session: Session, run: QualityRun, df) -> QualityRun:
     """Run the checks and persist the outcome. Never raises for pipeline errors."""
+    started = time.perf_counter()
     try:
         pairs, broken = _load_rule_objects(session, run.dataset_id)
         results = run_rules(df, [built for _, built in pairs])
@@ -86,7 +95,8 @@ def _execute_run(session: Session, run: QualityRun, df) -> QualityRun:
                 run_id=run.id, rule_id=stored.id, rule_name=result.rule_name,
                 status=result.status.value, severity=result.severity.value,
                 rows_evaluated=result.rows_evaluated, rows_failed=result.failed_row_count,
-                message=result.message,
+                message=result.message, category=result.category,
+                rows_rejected=len(result.rejected_index),
                 details=_persistable_details(result.details, result.sample_row_indexes),
             ))
         for stored, message in broken:
@@ -94,14 +104,22 @@ def _execute_run(session: Session, run: QualityRun, df) -> QualityRun:
                 run_id=run.id, rule_id=stored.id, rule_name=stored.name,
                 status="FAIL", severity=stored.severity, rows_evaluated=0, rows_failed=0,
                 message=f"Configuration error: {message}", details={"error": "configuration"},
+                category="schema", rows_rejected=0,
             ))
 
         failed = sum(1 for r in rows if r.status == "FAIL")
+        schema_failures = sum(1 for r in rows if r.status == "FAIL" and r.category == "schema")
+        counts = account_rows(results, len(df))
         session.add_all(rows)
         run.checks_failed = failed
         run.checks_passed = len(rows) - failed
         run.status = (RunStatus.COMPLETED_WITH_ISSUES if failed else RunStatus.SUCCESS).value
         run.error_message = None
+        run.source_rows = counts.source_rows
+        run.valid_rows = counts.valid_rows
+        run.rejected_rows = counts.rejected_rows
+        run.loadable = schema_failures == 0
+        run.duration_ms = round((time.perf_counter() - started) * 1000)
         run.completed_at = datetime.now(UTC)
         session.commit()
     except Exception:
@@ -117,11 +135,12 @@ def _execute_run(session: Session, run: QualityRun, df) -> QualityRun:
     return run
 
 
-def _start_run(session: Session, dataset_id: int) -> QualityRun:
+def _start_run(session: Session, dataset_id: int, file_sha256: str) -> QualityRun:
     """Commit a run row that starts as FAILED, so an interrupted run never looks successful."""
     run = QualityRun(
         dataset_id=dataset_id, status=RunStatus.FAILED.value,
         error_message="Run did not finish.", checks_passed=0, checks_failed=0,
+        file_sha256=file_sha256,
     )
     session.add(run)
     session.commit()
@@ -162,7 +181,7 @@ def create_dataset_from_upload(
         session.rollback()
         raise
 
-    return _execute_run(session, _start_run(session, dataset.id), df)
+    return _execute_run(session, _start_run(session, dataset.id, _file_hash(content)), df)
 
 
 def run_quality_checks(session: Session, dataset_id: int, content: bytes, filename: str) -> QualityRun:
@@ -170,7 +189,7 @@ def run_quality_checks(session: Session, dataset_id: int, content: bytes, filena
     if session.get(Dataset, dataset_id) is None:
         raise NotFoundError("Dataset not found.", {"dataset_id": dataset_id})
     df = read_csv_bytes(content, filename)  # raises before a run row exists
-    return _execute_run(session, _start_run(session, dataset_id), df)
+    return _execute_run(session, _start_run(session, dataset_id, _file_hash(content)), df)
 
 
 def _clean_name(filename: str) -> str:

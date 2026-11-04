@@ -8,6 +8,7 @@ returns a report, and a pipeline failure is never reported as success.
 """
 import time
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +22,7 @@ from app.ingestion.csv_reader import read_csv_bytes
 from app.processing.report import PipelineReport, RejectedRow, RuleSummary
 from app.profiling.profiler import profile_dataframe
 from app.quality.engine import run_rules
-from app.quality.result import QUALITY, SCHEMA
+from app.quality.result import QUALITY, SCHEMA, RuleResult
 from app.quality.rules.base import BaseRule
 from app.quality.rules.registry import build_rule
 
@@ -50,6 +51,37 @@ def _default_max_bytes() -> int:
         return get_settings().max_file_size_mb * 1024 * 1024
     except Exception:
         return DEFAULT_MAX_MB * 1024 * 1024
+
+
+@dataclass(frozen=True)
+class RowCounts:
+    source_rows: int
+    rejected_rows: int
+    valid_rows: int
+    overlap_rows: int
+
+
+def account_rows(results: list[RuleResult], source_rows: int) -> RowCounts:
+    """Count valid and rejected rows from the rule results.
+
+    A row is rejected if at least one QUALITY rule rejects it, and a row failing
+    several rules is counted once. valid + rejected always equals source_rows.
+    overlap_rows is how many rejections were double-counted across rules.
+    Both the pipeline report and the database layer use this one function.
+    """
+    rejected: set[int] = set()
+    per_rule_total = 0
+    for result in results:
+        if result.category != QUALITY:
+            continue
+        per_rule_total += len(result.rejected_index)
+        rejected.update(result.rejected_index)
+    return RowCounts(
+        source_rows=source_rows,
+        rejected_rows=len(rejected),
+        valid_rows=source_rows - len(rejected),
+        overlap_rows=per_rule_total - len(rejected),
+    )
 
 
 def build_rules(specs: list[dict[str, Any]]) -> list[BaseRule]:
@@ -104,11 +136,8 @@ def process_dataframe(
     quality = [r for r in results if r.category == QUALITY]
 
     # Valid and rejected rows. A row failing several rules is counted once.
-    rejected: set[int] = set()
-    per_rule_total = 0
-    for result in quality:
-        per_rule_total += len(result.rejected_index)
-        rejected.update(result.rejected_index)
+    counts = account_rows(results, len(df))
+    per_rule_total = counts.rejected_rows + counts.overlap_rows
 
     failed = [r for r in results if r.status.value == "FAIL"]
     schema_failures = sum(1 for r in failed if r.category == SCHEMA)
@@ -125,10 +154,10 @@ def process_dataframe(
         source_file=source_file,
         source_rows=len(df),
         source_columns=len(df.columns),
-        valid_rows=len(df) - len(rejected),
-        rejected_rows=len(rejected),
+        valid_rows=counts.valid_rows,
+        rejected_rows=counts.rejected_rows,
         duplicate_rows=profile["duplicate_row_count"],
-        overlap_rows=per_rule_total - len(rejected),
+        overlap_rows=counts.overlap_rows,
         rules_executed=len(results),
         rules_passed=len(results) - len(failed),
         rules_failed=len(failed),
