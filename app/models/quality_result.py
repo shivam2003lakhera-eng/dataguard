@@ -16,6 +16,8 @@ class QualityResult(Base):
         CheckConstraint(in_values("severity", Severity), name="ck_quality_results_severity"),
         CheckConstraint("rows_evaluated >= 0", name="ck_quality_results_evaluated"),
         CheckConstraint("rows_failed >= 0", name="ck_quality_results_failed"),
+        CheckConstraint("category IN ('schema', 'quality')", name="ck_quality_results_category"),
+        CheckConstraint("rows_rejected >= 0", name="ck_quality_results_rejected"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -34,5 +36,9 @@ class QualityResult(Base):
     message: Mapped[str] = mapped_column(Text)
     details: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # "schema" judges the file's shape, "quality" judges the rows.
+    category: Mapped[str] = mapped_column(String(10), default="quality", server_default="quality")
+    # Rows this rule rejects. NULL for results saved before this was recorded.
+    rows_rejected: Mapped[int | None] = mapped_column(Integer)
 
     run: Mapped["QualityRun"] = relationship(back_populates="results")

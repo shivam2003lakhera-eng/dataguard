@@ -1,0 +1,85 @@
+[
+  {
+    "name": "Required columns exist",
+    "rule_type": "required_columns",
+    "severity": "HIGH",
+    "configuration": {
+      "columns": [
+        "policy_id",
+        "premium",
+        "policy_status",
+        "start_date",
+        "end_date"
+      ]
+    }
+  },
+  {
+    "name": "Policy id is filled",
+    "rule_type": "required_values",
+    "severity": "HIGH",
+    "configuration": {
+      "columns": [
+        "policy_id"
+      ]
+    }
+  },
+  {
+    "name": "Policy id is unique",
+    "rule_type": "duplicates",
+    "severity": "HIGH",
+    "configuration": {
+      "columns": [
+        "policy_id"
+      ]
+    }
+  },
+  {
+    "name": "Premium is not negative",
+    "rule_type": "numeric_range",
+    "severity": "MEDIUM",
+    "configuration": {
+      "column": "premium",
+      "min": 0
+    }
+  },
+  {
+    "name": "Premium is a number",
+    "rule_type": "data_type",
+    "severity": "MEDIUM",
+    "configuration": {
+      "column": "premium",
+      "data_type": "float"
+    }
+  },
+  {
+    "name": "Start date is a date",
+    "rule_type": "data_type",
+    "severity": "LOW",
+    "configuration": {
+      "column": "start_date",
+      "data_type": "date"
+    }
+  },
+  {
+    "name": "End date is a date",
+    "rule_type": "data_type",
+    "severity": "LOW",
+    "configuration": {
+      "column": "end_date",
+      "data_type": "date"
+    }
+  },
+  {
+    "name": "Status is allowed",
+    "rule_type": "allowed_values",
+    "severity": "LOW",
+    "configuration": {
+      "column": "policy_status",
+      "allowed": [
+        "ACTIVE",
+        "EXPIRED",
+        "PENDING"
+      ]
+    }
+  }
+]

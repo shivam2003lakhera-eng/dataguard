@@ -6,7 +6,7 @@ import pandas as pd
 
 from app.core.constants import CheckStatus, Severity
 from app.core.exceptions import ConfigurationError
-from app.quality.result import RuleResult
+from app.quality.result import QUALITY, SCHEMA, RuleResult
 
 MAX_SAMPLES = 5
 
@@ -46,6 +46,10 @@ class BaseRule(ABC):
     """Template that every quality rule must follow."""
 
     rule_type: str = "base"
+    # "schema" rules judge the shape of the file. "quality" rules judge the rows.
+    category: str = QUALITY
+    # Short per-row explanation used when a row is rejected by this rule.
+    row_reason: str = ""
 
     def __init__(
         self,
@@ -65,6 +69,14 @@ class BaseRule(ABC):
     def evaluate(self, df: pd.DataFrame) -> RuleResult:
         """Check the data and return a RuleResult."""
 
+    def _rule_columns(self) -> list[str]:
+        """The column names this rule is configured for (for reports)."""
+        columns = self.config.get("columns")
+        if isinstance(columns, list):
+            return [str(c) for c in columns]
+        column = self.config.get("column")
+        return [column] if isinstance(column, str) else []
+
     def _result(
         self,
         status: CheckStatus,
@@ -73,6 +85,10 @@ class BaseRule(ABC):
         failed_row_count: int = 0,
         sample_row_indexes: list[int] | None = None,
         details: dict[str, Any] | None = None,
+        rejected_index: list[int] | None = None,
+        reason: str | None = None,
+        category: str | None = None,
+        columns: list[str] | None = None,
     ) -> RuleResult:
         return RuleResult(
             rule_name=self.name,
@@ -84,14 +100,23 @@ class BaseRule(ABC):
             failed_row_count=failed_row_count,
             sample_row_indexes=sample_row_indexes or [],
             details=details or {},
+            category=category or self.category,
+            columns=self._rule_columns() if columns is None else columns,
+            reason=self.row_reason if reason is None else reason,
+            rejected_index=rejected_index or [],
         )
 
-    def _config_failure(self, message: str) -> RuleResult:
-        """A visible FAIL for a problem found only at run time (never skipped)."""
+    def _config_failure(self, message: str, columns: list[str] | None = None) -> RuleResult:
+        """A visible FAIL for a problem found only at run time (never skipped).
+
+        It is a schema failure: the rule could not look at the data at all.
+        """
         return self._result(
             CheckStatus.FAIL,
             f"Configuration error: {message}",
             details={"error": "configuration"},
+            category=SCHEMA,
+            columns=columns,
         )
 
     def _absent_columns_failure(
@@ -100,5 +125,7 @@ class BaseRule(ABC):
         """Return a failure result if any column is missing from the data."""
         absent = [c for c in columns if c not in df.columns]
         if absent:
-            return self._config_failure(f"Column not found in data: {', '.join(absent)}")
+            return self._config_failure(
+                f"Column not found in data: {', '.join(absent)}", columns=absent
+            )
         return None

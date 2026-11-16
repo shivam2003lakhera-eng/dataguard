@@ -1,9 +1,12 @@
+import hashlib
+import time
 from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.constants import RunStatus
 from app.core.exceptions import ConfigurationError, NotFoundError
 from app.core.logging import get_logger
@@ -15,13 +18,34 @@ from app.models import (
     QualityRule,
     QualityRun,
 )
+from app.processing.loading import LoadStats, iter_records, validate_key_columns
+from app.processing.runner import account_rows
 from app.profiling.profiler import profile_dataframe
 from app.quality.engine import run_rules
 from app.quality.rules.registry import build_rule
+from app.services.loading import upsert_records
 
 logger = get_logger(__name__)
 
 RUN_FAILED_MESSAGE = "The quality run failed unexpectedly. See server logs."
+
+# Keys in a rule's evidence that hold raw cell values from the uploaded file.
+SAMPLE_VALUE_KEYS = ("bad_values",)
+
+
+def _persistable_details(details: dict[str, Any], sample_row_indexes: list[int]) -> dict[str, Any]:
+    """What is stored with a result.
+
+    Row positions are always kept. Raw cell values are dropped unless
+    STORE_SAMPLE_VALUES=true, so uploaded data is not copied into the database
+    by default.
+    """
+    kept = dict(details)
+    if not get_settings().store_sample_values:
+        for key in SAMPLE_VALUE_KEYS:
+            kept.pop(key, None)
+    kept["sample_row_indexes"] = sample_row_indexes
+    return kept
 
 
 def _validate_rule_specs(rules: list[dict[str, Any]]) -> None:
@@ -55,8 +79,14 @@ def _load_rule_objects(session: Session, dataset_id: int):
     return pairs, broken
 
 
+def _file_hash(content: bytes) -> str:
+    """Identifies an uploaded file, so a re-upload of the same file can be recognised."""
+    return hashlib.sha256(content).hexdigest()
+
+
 def _execute_run(session: Session, run: QualityRun, df) -> QualityRun:
     """Run the checks and persist the outcome. Never raises for pipeline errors."""
+    started = time.perf_counter()
     try:
         pairs, broken = _load_rule_objects(session, run.dataset_id)
         results = run_rules(df, [built for _, built in pairs])
@@ -67,22 +97,55 @@ def _execute_run(session: Session, run: QualityRun, df) -> QualityRun:
                 run_id=run.id, rule_id=stored.id, rule_name=result.rule_name,
                 status=result.status.value, severity=result.severity.value,
                 rows_evaluated=result.rows_evaluated, rows_failed=result.failed_row_count,
-                message=result.message,
-                details={**result.details, "sample_row_indexes": result.sample_row_indexes},
+                message=result.message, category=result.category,
+                rows_rejected=len(result.rejected_index),
+                details=_persistable_details(result.details, result.sample_row_indexes),
             ))
         for stored, message in broken:
             rows.append(QualityResult(
                 run_id=run.id, rule_id=stored.id, rule_name=stored.name,
                 status="FAIL", severity=stored.severity, rows_evaluated=0, rows_failed=0,
                 message=f"Configuration error: {message}", details={"error": "configuration"},
+                category="schema", rows_rejected=0,
+            ))
+
+        dataset = session.get(Dataset, run.dataset_id)
+        key_columns = dataset.key_columns
+        absent_keys = [c for c in (key_columns or []) if c not in df.columns]
+        if absent_keys:  # a visible schema failure, and nothing is loaded
+            rows.append(QualityResult(
+                run_id=run.id, rule_id=None, rule_name="Load key columns",
+                status="FAIL", severity="HIGH",
+                rows_evaluated=len(key_columns), rows_failed=len(absent_keys),
+                message="Configuration error: Key column(s) not found in data: "
+                        + ", ".join(absent_keys),
+                details={"error": "configuration", "columns": key_columns},
+                category="schema", rows_rejected=0,
             ))
 
         failed = sum(1 for r in rows if r.status == "FAIL")
+        schema_failures = sum(1 for r in rows if r.status == "FAIL" and r.category == "schema")
+        counts = account_rows(results, len(df))
         session.add_all(rows)
         run.checks_failed = failed
         run.checks_passed = len(rows) - failed
         run.status = (RunStatus.COMPLETED_WITH_ISSUES if failed else RunStatus.SUCCESS).value
         run.error_message = None
+        run.source_rows = counts.source_rows
+        run.valid_rows = counts.valid_rows
+        run.rejected_rows = counts.rejected_rows
+        run.loadable = schema_failures == 0
+        if key_columns and schema_failures == 0:
+            # Same transaction as the results: if loading fails, nothing at all is saved.
+            stats = LoadStats()
+            loaded = upsert_records(
+                session, dataset.id, iter_records(df, counts.rejected_index, key_columns, stats)
+            )
+            run.rows_inserted = loaded.inserted
+            run.rows_updated = loaded.updated
+            run.rows_unchanged = loaded.unchanged
+            run.rows_skipped = stats.skipped
+        run.duration_ms = round((time.perf_counter() - started) * 1000)
         run.completed_at = datetime.now(UTC)
         session.commit()
     except Exception:
@@ -98,11 +161,12 @@ def _execute_run(session: Session, run: QualityRun, df) -> QualityRun:
     return run
 
 
-def _start_run(session: Session, dataset_id: int) -> QualityRun:
+def _start_run(session: Session, dataset_id: int, file_sha256: str) -> QualityRun:
     """Commit a run row that starts as FAILED, so an interrupted run never looks successful."""
     run = QualityRun(
         dataset_id=dataset_id, status=RunStatus.FAILED.value,
         error_message="Run did not finish.", checks_passed=0, checks_failed=0,
+        file_sha256=file_sha256,
     )
     session.add(run)
     session.commit()
@@ -117,18 +181,29 @@ def create_dataset_from_upload(
     name: str,
     description: str | None = None,
     rules: list[dict[str, Any]] | None = None,
+    key_columns: list[str] | None = None,
 ) -> QualityRun:
-    """Upload pipeline: validate, save dataset/profile/rules, run the first check."""
+    """Upload pipeline: validate, save dataset/profile/rules, run the first check.
+
+    key_columns is optional. If given, the valid rows of this and every later run
+    are loaded into dataset_records. If not, no row is ever stored.
+    """
     rules = rules or []
     df = read_csv_bytes(content, filename)  # raises before anything is saved
     _validate_rule_specs(rules)             # raises before anything is saved
+    key_columns = validate_key_columns(key_columns)
+    absent = [c for c in key_columns or [] if c not in df.columns]
+    if absent:                              # raises before anything is saved
+        raise ConfigurationError(
+            f"Key column(s) not found in the file: {', '.join(absent)}.", {"columns": absent}
+        )
     profile = profile_dataframe(df)
 
     try:
         dataset = Dataset(
             user_id=user_id,
             name=name, description=description, original_filename=_clean_name(filename),
-            row_count=len(df), column_count=len(df.columns),
+            row_count=len(df), column_count=len(df.columns), key_columns=key_columns,
         )
         session.add(dataset)
         session.add(DatasetProfile(dataset=dataset, profile_data=profile))
@@ -143,7 +218,7 @@ def create_dataset_from_upload(
         session.rollback()
         raise
 
-    return _execute_run(session, _start_run(session, dataset.id), df)
+    return _execute_run(session, _start_run(session, dataset.id, _file_hash(content)), df)
 
 
 def run_quality_checks(session: Session, dataset_id: int, content: bytes, filename: str) -> QualityRun:
@@ -151,7 +226,7 @@ def run_quality_checks(session: Session, dataset_id: int, content: bytes, filena
     if session.get(Dataset, dataset_id) is None:
         raise NotFoundError("Dataset not found.", {"dataset_id": dataset_id})
     df = read_csv_bytes(content, filename)  # raises before a run row exists
-    return _execute_run(session, _start_run(session, dataset_id), df)
+    return _execute_run(session, _start_run(session, dataset_id, _file_hash(content)), df)
 
 
 def _clean_name(filename: str) -> str:

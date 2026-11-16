@@ -1,4 +1,5 @@
 from functools import lru_cache
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -13,13 +14,15 @@ class Settings(BaseSettings):
     )
 
     app_env: str = "development"
-    database_url: str
-    test_database_url: str | None = None
+    # repr=False keeps the database passwords out of tracebacks and logs
+    database_url: str = Field(repr=False)
+    test_database_url: str | None = Field(default=None, repr=False)
     max_file_size_mb: int = Field(default=50, gt=0)
     log_level: str = "INFO"
     session_days: int = Field(default=7, gt=0)
     cookie_secure: bool = False
     allow_registration: bool = True
+    store_sample_values: bool = False
 
 
 @lru_cache

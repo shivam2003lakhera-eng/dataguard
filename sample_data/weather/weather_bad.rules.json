@@ -1,0 +1,42 @@
+[
+  {
+    "name": "City is filled",
+    "rule_type": "required_values",
+    "configuration": {
+      "columns": [
+        "city"
+      ]
+    }
+  },
+  {
+    "name": "Time is filled",
+    "rule_type": "required_values",
+    "configuration": {
+      "columns": [
+        "observation_time"
+      ]
+    }
+  },
+  {
+    "name": "No duplicate rows",
+    "rule_type": "duplicates",
+    "configuration": {}
+  },
+  {
+    "name": "Humidity 0 to 100",
+    "rule_type": "numeric_range",
+    "configuration": {
+      "column": "humidity",
+      "min": 0,
+      "max": 100
+    }
+  },
+  {
+    "name": "Wind not negative",
+    "rule_type": "numeric_range",
+    "configuration": {
+      "column": "wind_speed",
+      "min": 0
+    }
+  }
+]
