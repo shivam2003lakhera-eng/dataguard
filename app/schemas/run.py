@@ -39,6 +39,11 @@ class RunOut(BaseModel):
     duration_ms: int | None = None
     loadable: bool | None = None
     file_sha256: str | None = None
+    # loading (only when the dataset has key_columns); null means nothing was loaded
+    rows_inserted: int | None = None
+    rows_updated: int | None = None
+    rows_unchanged: int | None = None
+    rows_skipped: int | None = None
 
 
 class RunListItem(RunOut):

@@ -152,3 +152,17 @@ def test_upgrade_keeps_and_classifies_existing_results(test_engine):
         assert tuple(old_run) == (None, None, None, None, None)  # old runs: not measured, not zero
     finally:
         restore_model_schema(test_engine)
+
+
+def test_the_record_loading_migration_can_be_reversed_and_reapplied(migrated):
+    config, engine = migrated
+    command.downgrade(config, "0002_run_metrics")
+    inspector = inspect(engine)
+    assert "dataset_records" not in inspector.get_table_names()
+    assert "key_columns" not in {c["name"] for c in inspector.get_columns("datasets")}
+    assert "rows_inserted" not in {c["name"] for c in inspector.get_columns("quality_runs")}
+
+    command.upgrade(config, "head")
+    inspector = inspect(engine)
+    assert "dataset_records" in inspector.get_table_names()
+    assert "key_columns" in {c["name"] for c in inspector.get_columns("datasets")}

@@ -28,6 +28,17 @@ function rowCards(run) {
   );
 }
 
+/** Loading counts. Shown only when the dataset has key columns and the file was loaded. */
+function loadCards(run) {
+  if (run.rows_inserted === null || run.rows_inserted === undefined) return null;
+  return el("div", { class: "stats" },
+    stat(run.rows_inserted, "Records inserted", "pass"),
+    stat(run.rows_updated, "Records updated"),
+    stat(run.rows_unchanged, "Records unchanged"),
+    stat(run.rows_skipped, "Valid rows skipped", run.rows_skipped > 0 ? "fail" : ""),
+  );
+}
+
 function buildReport(run) {
   const headers = ["Rule", "Status", "Severity", "Kind", "Failed / evaluated", "Rejected rows", "Message"];
 
@@ -63,6 +74,7 @@ function buildReport(run) {
       stat(run.checks_failed, "Checks failed", "fail"),
     ),
     rowCards(run),
+    loadCards(run),
     el("div", { class: "row meta" },
       el("span", { class: "muted", text: `Started ${formatDate(run.started_at)}` }),
       el("a", { class: "btn secondary small", href: `#/datasets/${run.dataset_id}`, text: "View dataset" }),

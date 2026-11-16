@@ -59,6 +59,7 @@ class RowCounts:
     rejected_rows: int
     valid_rows: int
     overlap_rows: int
+    rejected_index: frozenset[int] = frozenset()  # which rows (never persisted)
 
 
 def account_rows(results: list[RuleResult], source_rows: int) -> RowCounts:
@@ -81,6 +82,7 @@ def account_rows(results: list[RuleResult], source_rows: int) -> RowCounts:
         rejected_rows=len(rejected),
         valid_rows=source_rows - len(rejected),
         overlap_rows=per_rule_total - len(rejected),
+        rejected_index=frozenset(rejected),
     )
 
 

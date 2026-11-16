@@ -18,10 +18,12 @@ from app.models import (
     QualityRule,
     QualityRun,
 )
+from app.processing.loading import LoadStats, iter_records, validate_key_columns
 from app.processing.runner import account_rows
 from app.profiling.profiler import profile_dataframe
 from app.quality.engine import run_rules
 from app.quality.rules.registry import build_rule
+from app.services.loading import upsert_records
 
 logger = get_logger(__name__)
 
@@ -107,6 +109,20 @@ def _execute_run(session: Session, run: QualityRun, df) -> QualityRun:
                 category="schema", rows_rejected=0,
             ))
 
+        dataset = session.get(Dataset, run.dataset_id)
+        key_columns = dataset.key_columns
+        absent_keys = [c for c in (key_columns or []) if c not in df.columns]
+        if absent_keys:  # a visible schema failure, and nothing is loaded
+            rows.append(QualityResult(
+                run_id=run.id, rule_id=None, rule_name="Load key columns",
+                status="FAIL", severity="HIGH",
+                rows_evaluated=len(key_columns), rows_failed=len(absent_keys),
+                message="Configuration error: Key column(s) not found in data: "
+                        + ", ".join(absent_keys),
+                details={"error": "configuration", "columns": key_columns},
+                category="schema", rows_rejected=0,
+            ))
+
         failed = sum(1 for r in rows if r.status == "FAIL")
         schema_failures = sum(1 for r in rows if r.status == "FAIL" and r.category == "schema")
         counts = account_rows(results, len(df))
@@ -119,6 +135,16 @@ def _execute_run(session: Session, run: QualityRun, df) -> QualityRun:
         run.valid_rows = counts.valid_rows
         run.rejected_rows = counts.rejected_rows
         run.loadable = schema_failures == 0
+        if key_columns and schema_failures == 0:
+            # Same transaction as the results: if loading fails, nothing at all is saved.
+            stats = LoadStats()
+            loaded = upsert_records(
+                session, dataset.id, iter_records(df, counts.rejected_index, key_columns, stats)
+            )
+            run.rows_inserted = loaded.inserted
+            run.rows_updated = loaded.updated
+            run.rows_unchanged = loaded.unchanged
+            run.rows_skipped = stats.skipped
         run.duration_ms = round((time.perf_counter() - started) * 1000)
         run.completed_at = datetime.now(UTC)
         session.commit()
@@ -155,18 +181,29 @@ def create_dataset_from_upload(
     name: str,
     description: str | None = None,
     rules: list[dict[str, Any]] | None = None,
+    key_columns: list[str] | None = None,
 ) -> QualityRun:
-    """Upload pipeline: validate, save dataset/profile/rules, run the first check."""
+    """Upload pipeline: validate, save dataset/profile/rules, run the first check.
+
+    key_columns is optional. If given, the valid rows of this and every later run
+    are loaded into dataset_records. If not, no row is ever stored.
+    """
     rules = rules or []
     df = read_csv_bytes(content, filename)  # raises before anything is saved
     _validate_rule_specs(rules)             # raises before anything is saved
+    key_columns = validate_key_columns(key_columns)
+    absent = [c for c in key_columns or [] if c not in df.columns]
+    if absent:                              # raises before anything is saved
+        raise ConfigurationError(
+            f"Key column(s) not found in the file: {', '.join(absent)}.", {"columns": absent}
+        )
     profile = profile_dataframe(df)
 
     try:
         dataset = Dataset(
             user_id=user_id,
             name=name, description=description, original_filename=_clean_name(filename),
-            row_count=len(df), column_count=len(df.columns),
+            row_count=len(df), column_count=len(df.columns), key_columns=key_columns,
         )
         session.add(dataset)
         session.add(DatasetProfile(dataset=dataset, profile_data=profile))

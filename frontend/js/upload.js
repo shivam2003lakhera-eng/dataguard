@@ -9,6 +9,7 @@ export function showUpload(render) {
         id: "rules",
         placeholder: '[{"name":"id required","rule_type":"required_values","configuration":{"columns":["id"]},"severity":"HIGH"}]',
     });
+    const keyInput = el("input", { type: "text", id: "keys", maxlength: "400", placeholder: "for example: id   (leave empty to store no rows)" });
     const button = el("button", { type: "button", text: "Upload and validate" });
 
     button.addEventListener("click", async () => {
@@ -29,11 +30,16 @@ export function showUpload(render) {
                 return message.append(errorBox("Rules must be a valid JSON list, or leave the box empty."));
             }
         }
+        const keyText = keyInput.value.trim();
+        if (keyText && keyText.split(",").some((part) => !part.trim())) {
+            return message.append(errorBox("Key columns must be column names separated by commas."));
+        }
 
         const form = new FormData();
         form.append("file", file);
         form.append("name", name);
         if (rulesText) form.append("rules", rulesText);
+        if (keyText) form.append("key_columns", keyText);
 
         button.disabled = true;
         button.textContent = "Uploading...";
@@ -54,7 +60,8 @@ export function showUpload(render) {
             el("label", { for: "name", text: "Dataset name" }), nameInput,
             el("label", { for: "file", text: "CSV file" }), fileInput,
             el("label", { for: "rules", text: "Rules (optional, JSON list)" }), rulesInput,
-            el("p", { class: "muted", text: "The rule editor comes in a later step. You can also add rules after uploading." }),
+            el("label", { for: "keys", text: "Key column(s) (optional)" }), keyInput,
+            el("p", { class: "muted", text: "By default no rows are stored: only the report is. If you enter key columns, the valid rows are loaded into the database and a later file updates the same records instead of duplicating them." }),
             el("div", { class: "row" }, button),
             message,
         ),

@@ -30,6 +30,13 @@ class QualityRun(Base):
             "AND valid_rows + rejected_rows = source_rows)",
             name="ck_quality_runs_row_accounting",
         ),
+        # Every valid row is inserted, updated, unchanged or skipped: nothing goes missing.
+        CheckConstraint(
+            "rows_inserted IS NULL OR (rows_inserted >= 0 AND rows_updated >= 0 "
+            "AND rows_unchanged >= 0 AND rows_skipped >= 0 "
+            "AND rows_inserted + rows_updated + rows_unchanged + rows_skipped = valid_rows)",
+            name="ck_quality_runs_load_accounting",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -52,6 +59,11 @@ class QualityRun(Base):
     duration_ms: Mapped[int | None] = mapped_column(Integer)
     loadable: Mapped[bool | None] = mapped_column(Boolean)  # no schema check failed
     file_sha256: Mapped[str | None] = mapped_column(String(64))  # identifies the uploaded file
+    # Loading (only for datasets with key_columns). NULL means nothing was loaded.
+    rows_inserted: Mapped[int | None] = mapped_column(Integer)
+    rows_updated: Mapped[int | None] = mapped_column(Integer)
+    rows_unchanged: Mapped[int | None] = mapped_column(Integer)
+    rows_skipped: Mapped[int | None] = mapped_column(Integer)
 
     dataset: Mapped["Dataset"] = relationship(back_populates="runs")
     results: Mapped[list["QualityResult"]] = relationship(
