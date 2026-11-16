@@ -33,11 +33,19 @@ Three different numbers, always labelled:
 | `rows_in_duplicate_groups` | every row that has an identical twin |
 | `duplicate_group_count` | how many different rows repeat |
 
-The profile compares whole rows. The `duplicates` rule can use key columns instead, and rows with a missing key are not treated as duplicates.
+The profile compares whole rows. The `duplicates` rule can use key columns instead, and rows with a missing key are not treated as duplicates. The **first** row of each group is kept: only the extra copies are rejected, although the rule's own failed count shows every row that has a twin.
+
+## Valid and rejected rows
+
+- A row is **rejected** if at least one **quality** rule fails it. A row failing several rules is rejected once.
+- `valid + rejected = rows read`, always.
+- **Schema** rules (and rules pointing at a missing column) judge the file, not rows. They never reject rows; they mark the run as not loadable instead.
+- A failed check is not a failed run. A run is `FAILED` only when it could not complete, and then every number it never measured is `NULL`.
 
 ## What is stored
 
-- CSV rows are processed in memory and never stored.
-- Stored: dataset metadata, the profile (counts and min/max), rules, run results and failing **row positions** (at most 5 per rule).
-- Raw cell values are **not** stored by default. Set `STORE_SAMPLE_VALUES=true` to also keep up to 5 offending values per rule, which can help debugging but copies data into the database.
+- The uploaded file is **not** stored. Its SHA-256 hash is.
+- Rows are **not** stored by default. If a dataset has key columns, its valid rows are loaded into `dataset_records` (see [data_loading.md](data_loading.md)).
+- Stored with every run: the profile (counts and min/max), the rules, the results, the failing **row positions** (at most 5 per rule), and the row accounting.
+- Raw cell values are **not** stored in reports by default. Set `STORE_SAMPLE_VALUES=true` to also keep up to 5 offending values per rule, which can help debugging but copies data into the database.
 - Profile minimum and maximum values for numeric and date columns are stored.

@@ -12,6 +12,7 @@ CSV bytes -> extract -> profile -> validate -> separate valid / rejected rows ->
 | Profile | `app/profiling/` | Types, missing values, duplicates, distinct counts, min and max. |
 | Validate | `app/quality/` | Runs the six rule types. Each rule says which rows it rejects and why. |
 | Report | `app/processing/runner.py` | Counts valid and rejected rows and builds the report. |
+| Load (web app only) | `app/services/loading.py` | If the dataset has key columns, upserts the valid rows. See [data_loading.md](data_loading.md). |
 
 ## Functions
 
@@ -23,7 +24,7 @@ CSV bytes -> extract -> profile -> validate -> separate valid / rejected rows ->
 
 ## Command line
 
-No database is needed.
+No database is needed. The command line validates and reports only: it never writes to a database. Loading rows is done by the web app (see [data_loading.md](data_loading.md)).
 
 ```powershell
 python -m app.cli run sample_data/insurance/policies_bad.csv --rules sample_data/insurance/policies_bad.rules.json
