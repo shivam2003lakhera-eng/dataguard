@@ -77,35 +77,52 @@ def generate_csv(path: Path, rows: int, seed: int = 42) -> None:
     frame.to_csv(path, index=False)
 
 
-def peak_memory_mb() -> float | None:
-    """Peak resident memory of this process in MB, or None if it cannot be read."""
+def _windows_peak_mb() -> float:
+    """Peak working set of this process on Windows, in MB. Raises if it cannot be read."""
+    import ctypes
+    from ctypes import wintypes
+
+    class Counters(ctypes.Structure):
+        _fields_ = [
+            ("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
+            ("PeakWorkingSetSize", ctypes.c_size_t), ("WorkingSetSize", ctypes.c_size_t),
+            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t), ("QuotaPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t), ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+            ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t),
+        ]
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.GetCurrentProcess.argtypes = []
+    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    get_info = getattr(kernel32, "K32GetProcessMemoryInfo", None)
+    if get_info is None:  # older Windows keeps it in psapi.dll
+        get_info = ctypes.WinDLL("psapi", use_last_error=True).GetProcessMemoryInfo
+    # Without argtypes, ctypes squeezes the 64-bit process handle into a 32-bit int and fails.
+    get_info.argtypes = [wintypes.HANDLE, ctypes.POINTER(Counters), wintypes.DWORD]
+    get_info.restype = wintypes.BOOL
+
+    counters = Counters()
+    counters.cb = ctypes.sizeof(Counters)
+    if not get_info(kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb):
+        raise ctypes.WinError(ctypes.get_last_error())
+    return counters.PeakWorkingSetSize / 1e6
+
+
+def peak_memory_mb(raise_errors: bool = False) -> float | None:
+    """Peak resident memory of this process in MB, or None if it cannot be read.
+
+    With raise_errors=True the real error is raised instead of returning None.
+    """
     try:
         if sys.platform == "win32":
-            import ctypes
-            from ctypes import wintypes
-
-            class Counters(ctypes.Structure):
-                _fields_ = [
-                    ("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
-                    ("PeakWorkingSetSize", ctypes.c_size_t), ("WorkingSetSize", ctypes.c_size_t),
-                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t), ("QuotaPagedPoolUsage", ctypes.c_size_t),
-                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t), ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
-                    ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t),
-                ]
-
-            counters = Counters()
-            counters.cb = ctypes.sizeof(Counters)
-            kernel32 = ctypes.windll.kernel32
-            kernel32.GetCurrentProcess.restype = wintypes.HANDLE
-            ok = ctypes.windll.psapi.GetProcessMemoryInfo(
-                kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb
-            )
-            return round(counters.PeakWorkingSetSize / 1e6, 1) if ok else None
+            return round(_windows_peak_mb(), 1)
         import resource
 
         peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         return round(peak / 1e6 if sys.platform == "darwin" else peak / 1e3, 1)
     except Exception:
+        if raise_errors:
+            raise
         return None
 
 
@@ -179,9 +196,14 @@ def main() -> None:
         total = r["duration_ms"] / 1000
         print(f"| {r['rows']:,} | {r['file_mb']} | {t['extract'] / 1000:.2f} | {t['profile'] / 1000:.2f} | "
               f"{t['validate'] / 1000:.2f} | {total:.2f} | {r['rows'] / total:,.0f} | "
-              f"{r['peak_memory_mb']} | {r['valid_rows']:,} | {r['rejected_rows']:,} |")
-    print("\nPeak MB is the whole process (including the interpreter and pandas, about "
-          f"{results[0]['baseline_memory_mb']} MB before reading any data).")
+              f"{r['peak_memory_mb'] if r['peak_memory_mb'] is not None else 'n/a'} | "
+              f"{r['valid_rows']:,} | {r['rejected_rows']:,} |")
+    baseline = results[0]["baseline_memory_mb"]
+    if baseline is None:
+        print("\nPeak memory could not be read on this platform.")
+    else:
+        print("\nPeak MB is the whole process (including the interpreter and pandas, about "
+              f"{baseline} MB before reading any data).")
 
 
 if __name__ == "__main__":
